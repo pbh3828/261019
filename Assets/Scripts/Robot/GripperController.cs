@@ -1,7 +1,5 @@
-using NUnit.Framework;
 using System.Collections;
 using System.Collections.Generic;
-using Unity.AppUI.Editor;
 using UnityEngine;
 
 
@@ -59,14 +57,14 @@ public class GripperController : MonoBehaviour
 
     public float restoreCollisionDelay = 0.3f; //놓자마자 충돌을 켜면 손가락과 겹친 부품이 튕겨나감. 부품이 빠질시간 추가 
 
-    [Header ("테스트")]
+    [Header("테스트")]
     public bool showTestButtons = true;  // 화면에 버튼 표시 여부
 
-    public Rigidbody HeldPart {  get; private set; }    //지금 잡고있는 부품 
+    public Rigidbody HeldPart { get; private set; }    //지금 잡고있는 부품 
     public bool IsBusy { get; private set; }  // 열고 닫는 중이면 true, 동작중 중복 실행을 막음
 
     //판정결과를 나중에 ML보상에 사용 
-    public bool LastGraspOk {  get; private set; }  // 잡기 성공 여부
+    public bool LastGraspOk { get; private set; }  // 잡기 성공 여부
 
     public float LastAngleRight { get; private set; }  // 오른쪽 손가락이 닿을 면의 기울기
 
@@ -88,7 +86,7 @@ public class GripperController : MonoBehaviour
     private Vector3 dbgHitA, dbgHitB, dbgNormA, dbgNormB;
     private bool dbgVaild;
 
-    private  void Start()
+    private void Start()
     {
         //transform.root는 최상위 부모 (niryㅐ_one)을 말함. true 전달하여 꺼진 오브젝트 전체 콜라이더를 가져옴
         robotColliders = transform.root.GetComponentsInChildren<Collider>(true);
@@ -98,9 +96,9 @@ public class GripperController : MonoBehaviour
         SetTargets(rightOpen, leftOpen);
     }
 
-    public IEnumerable Close()
+    public IEnumerator Close()
     {
-        if(IsBusy) yield break; // 이미 동작중이면 바로 끝냄
+        if (IsBusy) yield break; // 이미 동작중이면 바로 끝냄
 
         IsBusy = true; // 동작 중 표시를 켬 
 
@@ -112,6 +110,231 @@ public class GripperController : MonoBehaviour
         //잡을 수 있는 것인지 아닌지. 
         //TODO predictGrasp
         bool predictedOk = predictGrasp(out Rigidbody predictedPart);
+
+        string pred = LastGraspInfo;
+
+        //기록용 닫기전 부품 위치,회전,각 손가락이 처음 닿는 시간
+        Vector3 partPos0 = predictedPart != null ? predictedPart.position : Vector3.zero;
+        Quaternion partRot0 = predictedPart != null ? predictedPart.rotation : Quaternion.identity;
+
+        float elapsed = 0f;  //몇초만에 부품이닿았는데
+        float rightFirst = -1f;  //-1이 들어가있으면 한번도 닿지 않음
+        float leftFirst = -1f;
+
+        //손가락 닫기
+        float startR = rightFinger.jointPosition[0];        // 관절이 실제로 지금 있는 위치. 손가락
+        float startL = leftFinger.jointPosition[0];
+
+        float t = 0f;    //진행률 0에서 1까지 가는 비율
+
+        bool touched = false; // 양쪽이 같은 부품에 닿은적 있는지(원인구분용)
+        float extra = 0f; //구간 대기시간 
+
+        while (t<1f || extra < extraCloseTime)
+        {
+            if (t <1f)
+            {
+                //물리 스텝마다 그리퍼를 조금씩 닫기 . move time동안 닫히도록 
+                t += Time.fixedDeltaTime / moveTime;
+                SetTargets(Mathf.Lerp(startR, rightClose, t), Mathf.Lerp(startL, leftClose, t));
+            }
+            else
+            {
+                //목표는 이미 닫힘. 실제 손가락은 목표를 늦게 따라오므로 조금 더 기다림
+                extra += Time.fixedDeltaTime;
+            }
+
+            elapsed += Time.fixedDeltaTime; //기록용 각 손가락이 처음 닫은 시각
+
+
+            //rightFirst<0f 음수라는 뜻은 기록한적이없음 ,  rightContact.TouchingPart != null 지금 오른쪽 손가락이 부푸멩 닿아있음
+            //양쪽 시간이 비슷하면 부품이 가운데, 사이가 크면 한쪽으로 치우쳐서 밀린것 -> 실패 원인
+            if (rightFirst<0f && rightContact.TouchingPart != null)
+            {
+                rightFirst = elapsed;
+            }
+
+            if (leftFirst<0f && leftContact.TouchingPart != null)
+            {
+                leftFirst = elapsed;
+            }
+
+            //오른쪽 왼쪽이 같은 부품에 동시에 닿아있음 
+            Rigidbody r = rightContact.TouchingPart;
+            if (r != null && r ==leftContact.TouchingPart)
+            {
+                touched = true;
+                float posR = rightFinger.jointPosition[0];
+                float posL = leftFinger.jointPosition[0];
+
+                //통과조건
+                //판정을 무조건 통과해주거나 (!useGraspCheck) , 닫기전 판정이 성공이고 판정한 그 부품에 닿았을때 
+                bool ok = !useGraspCheck || (predictedOk && r == predictedPart);
+
+                if (ok)
+                {
+                    //판정이 통과했을때는 ->  Target 목표를 현재위치로 고정
+                    SetTargets(posR, posL);  //현재 위치에서 정지
+                    Attach(r);                   //부품을 Attach
+                                                 //TODO Attach함수 만들기 
+                    LastGraspOk = true;
+                }
+                else
+                {
+                    //통과못했을때는
+                    //그리퍼 열기, 부품을 떨어지게 
+                    //두손가락이 여는 방향은 부호가 반대(오른쪽은 - , 왼쪽은++
+                    //Mathf.Sign이 하는 일은 숫자의 부호만 남김. 양수와 0 -> +1, 음수인 -1
+                    //Sign으로부터 방향을 받고 slipBackOff(1mm)을 곱해서 거리를 구함 
+                    SetTargets(posR + Mathf.Sign(rightOpen - rightClose) * slipBackoff,
+                        posL + Mathf.Sign(leftOpen - leftClose) * slipBackoff);
+                }
+                break;
+            }
+            yield return new WaitForFixedUpdate();
+
+        }
+
+        //yield return new WaitForFixedUpdate();
+
+        //결과정리 닫기전 판정, 실패 원인 2가지(닿기는했는데 각도 초과된경우, 양쪽 닫지않은경우
+        string result;
+        if (LastGraspOk)
+        {
+            result = "성공";
+        }
+        else if (touched)
+        {
+            result ="실패 : 미끄러짐(판정 각도가 초과)";
+        }
+        else
+        {
+            result ="실패 : 양쪽 손가락이 동시에 닿지 않음";
+        }
+        LastGraspInfo = $"{result}\n 닫기전 판정:{pred}";
+
+        //콘솔 기록 
+        string rightTime = "안닿음";
+        if (rightFirst >= 0f)
+        {
+            rightTime = $"{rightFirst:F2}초";
+        }
+
+        string leftTime = "안닿음";
+        if (leftFirst >= 0f)
+        {
+            leftTime = $"{leftTime:F2}초";
+        }
+
+        //닫는동안 부품이 밀린거리, 돌아간 각도 -> 크면 파지위치가 나빳다는 뜻
+        float moveMm = 0f;
+        float turnDeg = 0f;
+
+        if (predictedPart !=null)
+        {
+            moveMm = Vector3.Distance(predictedPart.position, partPos0)*100; // m->mm
+            turnDeg = Quaternion.Angle(predictedPart.rotation, partRot0);
+        }
+
+        //손가락 실제 위치와 목표(차이가 크면 부품에 막혀있다는 뜻
+        float rightPos = rightFinger.jointPosition[0];
+        float leftPos = rightFinger.jointPosition[0];
+        float rightTarget = rightFinger.xDrive.target;
+        float leftTarget = leftFinger.xDrive.target;
+
+        Debug.Log($"[Grasp] {result} | 닫기전 판정: {pred}" +
+            $"처음닫은 시간 R {rightTime}, L{leftTime} | +" +
+            $"손가락 위치 {rightPos:F4} / {leftPos:F4} (목표 {rightTarget:F4} / {leftTarget:F4} |"+
+            $"부품 이동{moveMm:F1}mm, 회전{turnDeg:F1}도");
+
+        IsBusy = false;
+    }
+
+    public IEnumerator Open()
+    {
+        if (IsBusy) yield break;
+
+        IsBusy = true;
+
+        //먼저 부품에 손에서 떼고, 물리 다시 적용
+        Detach();
+
+        //손가락 열기 
+        float startR = rightFinger.jointPosition[0];
+        float startL = leftFinger.jointPosition[0];
+
+        float t = 0f;
+
+        while (t<1f)
+        {
+            t += Time.fixedDeltaTime / moveTime;  //moveTime동안 열림 위치까지 
+
+            //왼쪽 손가락 열기, 오른쪽 손가락 열기 Lerp
+            //close 함수 예시 Mathf.Lerp(startR, rightClose, t)
+            SetTargets(Mathf.Lerp(startR, rightOpen, t), Mathf.Lerp(startL, leftOpen, t));
+            yield return new WaitForFixedUpdate();
+        }
+
+        //부품이 손가락에서 완전히 빠진 뒤에는 로봇,부품 충돌을 다시 켠다 
+        yield return new WaitForSeconds(restoreCollisionDelay);
+
+        SetIgnoreCollision(false);
+
+        IsBusy = false;
+    }
+
+    //부품 붙이기
+    private void Attach(Rigidbody part)
+    {
+        HeldPart = part;
+        part.isKinematic = true;   //물리 계산에서 빼서 중력, 충돌에 의해 부품이 흔들리지 않게됨
+        part.transform.SetParent(attachPoint, true); //attachpoint의 자식으로 설정하고 true 는 지금 월드 위치와 회전은 그대로 유지 
+
+        //잡은 부품이 손가락과 계속 부딪히면 떨리는 문제가 발생할수있다
+        ignoredPartColliders.Clear();     //1. 목록을 비움
+        ignoredPartColliders.AddRange(part.GetComponentsInChildren<Collider>()); //2. 부품의 콜라이더를 전부 목록에 넣는다
+
+        //TODO SetIgnoreCollision
+        SetIgnoreCollision(true);
+    }
+
+    private void Detach()
+    {
+        //HeldPart = null;
+        if (HeldPart == null) return;
+
+        //부품 부모를 해제, 물리를 다시 적용 
+
+        HeldPart.transform.SetParent(null, true);
+        HeldPart.isKinematic = false;
+        HeldPart = null;
+
+        //fingerContact에 남아있는 접촉 기록 지움 
+        rightContact.Clear();
+        leftContact.Clear();
+    }
+
+    private void SetIgnoreCollision(bool ignore)
+    {
+        foreach (Collider partCollider in ignoredPartColliders)
+        {
+            if (partCollider == null) continue;
+
+            foreach (Collider robotCollider in robotColliders)
+            {
+                //로봇 콜라이더가 삭제됐거나 같은 콜라이더면 건너 뜀
+                if (robotCollider != null && robotCollider != partCollider)
+                {
+                    Physics.IgnoreCollision(partCollider, robotCollider, ignore);
+                }
+            }
+        }
+
+        //다시 켰으면 목록 비움(다음에 잡을 부품을 새로 넣기 위해 
+        if (ignore)
+        {
+            ignoredPartColliders.Clear();
+        }
     }
 
     //그랩 판정 (닫기 전)
@@ -124,7 +347,7 @@ public class GripperController : MonoBehaviour
     // 그리퍼 기준 "앞, 위, 옆, 시작점"이 필요함
     // 그리퍼가 계속 돌아갈 예정이니 그리퍼 기준의 값이 필요함 
 
-    private bool predictGrasp(out Rigidbody part)     
+    private bool predictGrasp(out Rigidbody part)
     {
         part = null;
         dbgVaild = false;  //그릴것이 없으므로 리셋
@@ -177,7 +400,7 @@ public class GripperController : MonoBehaviour
 
         //한쪽이라도 못맞췄거나 , 양쪽이 서로 다른 부품을 맞췄다면 -> 실패 
 
-        if (!okA || !okB || partA != partB) 
+        if (!okA || !okB || partA != partB)
         {
             LastGraspInfo = "실패 : 손가락 사이에 부품없음";
 
@@ -210,7 +433,7 @@ public class GripperController : MonoBehaviour
     //best = 가장 가까운 맞은 지점의 정보
     //bestPart = 그면이 속한 부품
     //boolen 부품을 맞췄다면 true
-    private bool FirstContact(Vector3 center , Vector3 axis, Vector3 up, Vector3 side, float sideSign, out RaycastHit best, out Rigidbody bestPart)
+    private bool FirstContact(Vector3 center, Vector3 axis, Vector3 up, Vector3 side, float sideSign, out RaycastHit best, out Rigidbody bestPart)
     {
         best = default;    //시작 빈값
         bestPart = null;   // 아직 맞힌 부품이 없음
@@ -222,7 +445,7 @@ public class GripperController : MonoBehaviour
 
         for (int iu = -1; iu <=1; iu++)   // iu는 -1는(위) 0은 (가운데) 1은 (아래)
         {
-            for(int iv = -1; iv <=1; iv++)
+            for (int iv = -1; iv <=1; iv++)
             {
                 // Vector3 origin = center + up * (iu * padHalfHeight) + side * (iv * padHalfHeight) + sideSign * axis * 0.1f;
 
@@ -235,7 +458,7 @@ public class GripperController : MonoBehaviour
                 //Raycast 처음 하나만 돌려줌. RaycastAll 광선이 지나는 모든 콜라이더를 돌려줌
                 //손가락이 다른 물체에 먼저 맞았더라하더라도 그 뒤의 부품까지 찾기위해서 all을 쓴다 
 
-                foreach (var h in Physics.RaycastAll(origin, dir, 0.2f, ~0, QueryTriggerInteraction.Ignore))
+                foreach (var h in Physics.RaycastAll(origin, dir, 0.2f, ~0, QueryTriggerInteraction.Ignore))  // => 광선쏘는 코드 
                 {
                     //맞은 콜라이더가 속한 Rigidbody(부픔) 
                     Rigidbody rb = h.collider.attachedRigidbody;
@@ -243,7 +466,7 @@ public class GripperController : MonoBehaviour
                     if (rb == null || !rb.CompareTag("Part") || rb == HeldPart) { continue; }
 
                     //지금까지의 기록보다 더 가까우면 새로 기록한다
-                    if (h.distance < bestDist) 
+                    if (h.distance < bestDist)
                     {
                         bestDist = h.distance;   //가장 가까운 거리 갱신
                         best = h;       // 그 지정 정보 갱신
@@ -252,9 +475,7 @@ public class GripperController : MonoBehaviour
                 }
             }
         }
-
         return bestPart != null;  //9게 광선중 하나라도 부품에 맞았다면 true
-
     }
 
     private void SetTargets(float right, float left)
@@ -270,5 +491,46 @@ public class GripperController : MonoBehaviour
         leftFinger.xDrive = d;
     }
 
+    //디버그 표시하는 함수 
+    //OnDrawGizmos 함수로 씬뷰에 라인을 표시함 
+    //흰선 = 두 접촉점은 이은선, 노란색 선 = 손가락이 처음 닿을 면의 법선 
+    private void OnDrawGizmos()
+    {
+        if(!dbgVaild) return;
 
+        Gizmos.color = Color.yellow;
+        Gizmos.DrawLine(dbgHitA, dbgHitA + dbgNormA * 0.03f); //노란 법선의 길이는 3cm
+        Gizmos.DrawLine(dbgHitB, dbgHitB + dbgNormB * 0.03f);
+
+        Gizmos.color = Color.white;
+        Gizmos.DrawLine(dbgHitA, dbgHitB);
+        Gizmos.DrawSphere(dbgHitA, 0.0015f);  //반지름 1.5mm크기 
+        Gizmos.DrawSphere(dbgHitB, 0.0015f);  //반지름 1.5mm크기 
+    }
+    static string Name(Rigidbody rb) => rb !=null ? rb.name : "-"; //존재할때만 이름으로 표시
+
+    private void OnGUI()
+    {
+        if(!showTestButtons) return;
+
+        GUILayout.BeginArea(new Rect(20,20, 200,200), GUI.skin.box);
+
+        if (GUILayout.Button("Open"))
+        {
+            StartCoroutine(Open());
+        }
+
+        if (GUILayout.Button("Close"))
+        {
+            StartCoroutine(Close());
+        }
+
+        GUILayout.Label($"Right / Left 위치{rightFinger.jointPosition[0]:F4} / {leftFinger.jointPosition[0]:F4}");
+        GUILayout.Label($"닿음: {Name(rightContact.TouchingPart)} /{Name(leftContact.TouchingPart)} ");
+        GUILayout.Label($"잡은 부품: {Name(HeldPart)}");
+        GUILayout.Label($"판정: {LastGraspInfo}");
+
+        GUILayout.EndArea();
+    }
 }
+

@@ -6823,9 +6823,9 @@ ArticulationBody:
   m_XDrive:
     lowerLimit: -175.00021
     upperLimit: 175.00021
-    stiffness: 0
-    damping: 0
-    forceLimit: 1
+    stiffness: 10000
+    damping: 100
+    forceLimit: 1000
     target: 0
     targetVelocity: 0
     driveType: 0
@@ -7189,9 +7189,9 @@ ArticulationBody:
   m_XDrive:
     lowerLimit: -147.49997
     upperLimit: 147.49997
-    stiffness: 0
-    damping: 0
-    forceLimit: 1
+    stiffness: 10000
+    damping: 100
+    forceLimit: 1000
     target: 0
     targetVelocity: 0
     driveType: 0
@@ -7883,9 +7883,9 @@ ArticulationBody:
   m_XDrive:
     lowerLimit: -109.99988
     upperLimit: 36.68001
-    stiffness: 0
-    damping: 0
-    forceLimit: 1
+    stiffness: 10000
+    damping: 100
+    forceLimit: 1000
     target: 0
     targetVelocity: 0
     driveType: 0
@@ -9115,6 +9115,38 @@ Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 4385bf9cdd04d410abf0c13a4671c867, type: 3}
   m_PrefabInstance: {fileID: 1047631226}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &1049173155
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1049173156}
+  m_Layer: 0
+  m_Name: IKTarget
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1049173156
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1049173155}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0.28, y: 0.16, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 1534735077}
+  m_Father: {fileID: 1520703045}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1050934501
 GameObject:
   m_ObjectHideFlags: 0
@@ -9193,9 +9225,9 @@ ArticulationBody:
   m_XDrive:
     lowerLimit: -100.000046
     upperLimit: 109.99988
-    stiffness: 0
-    damping: 0
-    forceLimit: 1
+    stiffness: 10000
+    damping: 100
+    forceLimit: 1000
     target: 0
     targetVelocity: 0
     driveType: 0
@@ -9777,6 +9809,7 @@ GameObject:
   - component: {fileID: 1148211370}
   - component: {fileID: 1148211369}
   - component: {fileID: 1148211368}
+  - component: {fileID: 1148211371}
   m_Layer: 0
   m_Name: niryo_one
   m_TagString: robot
@@ -9791,7 +9824,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1148211367}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: d607ea46a579d44c4b19a6322ce4b9b2, type: 3}
   m_Name: 
@@ -9843,6 +9876,44 @@ Transform:
   - {fileID: 1046814711}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 90, z: 0}
+--- !u!114 &1148211371
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1148211367}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 10f4558fa871cae43b6c92c95ddfef01, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ArmIK
+  joints:
+  - {fileID: 619233736}
+  - {fileID: 826827275}
+  - {fileID: 1300721654}
+  - {fileID: 1728626168}
+  - {fileID: 1050934504}
+  - {fileID: 740395309}
+  tip: {fileID: 316252573}
+  closingFinger: {fileID: 1664621156}
+  signsCalibrated: 1
+  jointSigns:
+  - 1
+  - 1
+  - 1
+  - 1
+  - 1
+  - 1
+  pointDown: 1
+  orientationWeight: 0.2
+  jointSpeed: 60
+  minMoveTime: 0.3
+  linearStep: 0.01
+  correctionPasses: 3
+  positionTolerance: 0.001
+  testTarget: {fileID: 1049173156}
+  followTestTarget: 1
 --- !u!1 &1174328938
 GameObject:
   m_ObjectHideFlags: 0
@@ -10665,9 +10736,9 @@ ArticulationBody:
   m_XDrive:
     lowerLimit: -80.06999
     upperLimit: 90
-    stiffness: 0
-    damping: 0
-    forceLimit: 1
+    stiffness: 10000
+    damping: 100
+    forceLimit: 1000
     target: 0
     targetVelocity: 0
     driveType: 0
@@ -11309,6 +11380,7 @@ Transform:
   m_Children:
   - {fileID: 670185023}
   - {fileID: 689167580}
+  - {fileID: 1049173156}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1001 &1524387007
@@ -11508,6 +11580,96 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e9090ae501ff9cd459bec5271d40249c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Robotics.UrdfImporter::Unity.Robotics.UrdfImporter.UrdfVisuals
+--- !u!1 &1534735076
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1534735077}
+  - component: {fileID: 1534735079}
+  - component: {fileID: 1534735078}
+  m_Layer: 0
+  m_Name: Sphere
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1534735077
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1534735076}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 0.02, y: 0.02, z: 0.02}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1049173156}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!23 &1534735078
+MeshRenderer:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1534735076}
+  m_Enabled: 1
+  m_CastShadows: 1
+  m_ReceiveShadows: 1
+  m_DynamicOccludee: 1
+  m_StaticShadowCaster: 0
+  m_MotionVectors: 1
+  m_LightProbeUsage: 1
+  m_ReflectionProbeUsage: 1
+  m_RayTracingMode: 2
+  m_RayTraceProcedural: 0
+  m_RayTracingAccelStructBuildFlagsOverride: 0
+  m_RayTracingAccelStructBuildFlags: 1
+  m_SmallMeshCulling: 1
+  m_ForceMeshLod: -1
+  m_MeshLodSelectionBias: 0
+  m_RenderingLayerMask: 1
+  m_RendererPriority: 0
+  m_Materials:
+  - {fileID: 2100000, guid: 31321ba15b8f8eb4c954353edc038b1d, type: 2}
+  m_StaticBatchInfo:
+    firstSubMesh: 0
+    subMeshCount: 0
+  m_StaticBatchRoot: {fileID: 0}
+  m_ProbeAnchor: {fileID: 0}
+  m_LightProbeVolumeOverride: {fileID: 0}
+  m_ScaleInLightmap: 1
+  m_ReceiveGI: 1
+  m_PreserveUVs: 0
+  m_IgnoreNormalsForChartDetection: 0
+  m_ImportantGI: 0
+  m_StitchLightmapSeams: 1
+  m_SelectedEditorRenderState: 3
+  m_MinimumChartSize: 4
+  m_AutoUVMaxDistance: 0.5
+  m_AutoUVMaxAngle: 89
+  m_LightmapParameters: {fileID: 0}
+  m_GlobalIlluminationMeshLod: 0
+  m_SortingLayerID: 0
+  m_SortingLayer: 0
+  m_SortingOrder: 0
+  m_MaskInteraction: 0
+  m_AdditionalVertexStreams: {fileID: 0}
+--- !u!33 &1534735079
+MeshFilter:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1534735076}
+  m_Mesh: {fileID: 10207, guid: 0000000000000000e000000000000000, type: 0}
 --- !u!1 &1582068874
 GameObject:
   m_ObjectHideFlags: 0
@@ -11884,6 +12046,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4c9ee5ef37c5df24585af0d529e31fcd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::FingerContact
+  holdTime: 0.1
 --- !u!1 &1664621153
 GameObject:
   m_ObjectHideFlags: 0
@@ -12028,6 +12191,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4c9ee5ef37c5df24585af0d529e31fcd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::FingerContact
+  holdTime: 0.1
 --- !u!1 &1679357781
 GameObject:
   m_ObjectHideFlags: 8
@@ -12339,9 +12503,9 @@ ArticulationBody:
   m_XDrive:
     lowerLimit: -175.00021
     upperLimit: 175.00021
-    stiffness: 0
-    damping: 0
-    forceLimit: 1
+    stiffness: 10000
+    damping: 100
+    forceLimit: 1000
     target: 0
     targetVelocity: 0
     driveType: 0
@@ -13325,6 +13489,24 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 63ece0a984b09674992515bd330e9474, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GripperController
+  rightFinger: {fileID: 1664621156}
+  leftFinger: {fileID: 1626311508}
+  rightContact: {fileID: 1664621158}
+  leftContact: {fileID: 1626311510}
+  rightOpen: -0.005
+  rightClose: 0.005
+  leftOpen: 0.005
+  leftClose: -0.005
+  moveTime: 0.5
+  extraCloseTime: 0.5
+  attachPoint: {fileID: 316252573}
+  useGraspCheck: 0
+  frictionConfficient: 0.36
+  padHalfHeight: 0.006
+  padHalfWidth: 0.006
+  slipBackoff: 0.001
+  restoreCollisionDelay: 0.3
+  showTestButtons: 1
 --- !u!1 &2072967274
 GameObject:
   m_ObjectHideFlags: 0
