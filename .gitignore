@@ -16,3 +16,7 @@
 *.userprefs
 .DS_Store
 Thumbs.db
+
+# ML-Agents generated timing reports
+/Assets/ML-Agents/Timers/
+/Assets/ML-Agents/Timers.meta

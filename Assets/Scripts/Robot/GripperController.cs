@@ -331,7 +331,7 @@ public class GripperController : MonoBehaviour
         }
 
         //다시 켰으면 목록 비움(다음에 잡을 부품을 새로 넣기 위해 
-        if (ignore)
+        if (!ignore)
         {
             ignoredPartColliders.Clear();
         }
