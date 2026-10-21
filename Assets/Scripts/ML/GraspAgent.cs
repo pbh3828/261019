@@ -187,7 +187,7 @@ public class GraspAgent : Agent
     public override void OnActionReceived(ActionBuffers actions)
     {
         //판단 요청한 상태가 아니라면 무시 (한 에피소드에 한번만 행동)
-        if(!waitingForDecision || currentPart ==null) {return;}
+        if (!waitingForDecision || currentPart ==null) { return; }
 
         waitingForDecision=false;
 
@@ -200,9 +200,39 @@ public class GraspAgent : Agent
     //고른 각도로 실제로 잡아보고, 결과를 보고 점수를 준뒤에 에피소드를 끝냄
     IEnumerator Act(float wristYaw)
     {
-        //오류 막기위해서 그냥 쓴거임 
-        yield return new WaitForSeconds(0);
-    }
+        // 시연 모드에서 넣을 통 번호(칸이 없으면 0번 통)
+        int binIndex = currentPrefabIndex < binForPrefab.Length ? binForPrefab[currentPrefabIndex] : 0;
 
-    #endregion
+        //잡기 실행
+        yield return sequence.Run(binIndex, wristYaw, trainingMode, currentPart);
+
+        //결과 : 들어올린 뒤에도 잡혀있으면 성공
+        bool success = sequence.LastSuccess;
+        //TODO Record 함수를 만들고 호출하기. 
+
+        //보상
+        SetReward(success ? successReward : failReward);
+
+        // 시연 모드에서 통에 넣은 부품은 남겨둬야한다(다음 에피소드에서도 삭제하지 않음)
+        if (!trainingMode &&  success && currentPart != null)
+        {
+            placedParts.Enqueue(currentPart.gameObject);
+            currentPart.tag = "Untagged";
+            currentPart = null;            //null 처리해서 비워야 BeginEpisode에서 삭제되지 않음 
+
+            if (placedParts.Count > maxPartsKeptInBins)
+            {
+                GameObject oldestPart = placedParts.Dequeue();
+
+                if (oldestPart != null)
+                {
+                    Destroy(oldestPart);
+                }
+            }
+        }
+
+        EndEpisode(); //Agent가 OnEpisodeBegin 다시 호출 -> 다음 부품
+
+        #endregion
+    }
 }
