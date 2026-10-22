@@ -13,6 +13,7 @@ GameObject:
   - component: {fileID: 2746046435453915667}
   - component: {fileID: 869736229246757921}
   - component: {fileID: 7583413117856710899}
+  - component: {fileID: 3076091241709102721}
   m_Layer: 0
   m_Name: CubePart
   m_TagString: Part
@@ -140,3 +141,19 @@ Rigidbody:
   m_Interpolate: 0
   m_Constraints: 0
   m_CollisionDetection: 1
+--- !u!114 &3076091241709102721
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 329069800211671326}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7467a9fc9b99aa5459ffe4ccf49d16d5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PartInfo
+  partType: 0
+  halfHeight: 0.015
+  symmetryDeg: 90
+  gripOffset: 0.013

@@ -1,9 +1,9 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Text;
 using Unity.MLAgents;
 using Unity.MLAgents.Actuators;
 using UnityEngine;
-using UnityEngine.Rendering;
 
 
 //GraspAgent는 이미지만 보고 손목각도를 고른다.
@@ -209,6 +209,7 @@ public class GraspAgent : Agent
         //결과 : 들어올린 뒤에도 잡혀있으면 성공
         bool success = sequence.LastSuccess;
         //TODO Record 함수를 만들고 호출하기. 
+        Record(success);  //결과 기록
 
         //보상
         SetReward(success ? successReward : failReward);
@@ -235,4 +236,191 @@ public class GraspAgent : Agent
 
         #endregion
     }
+
+    #region 3. 결과 기록 (성공률 통계)
+    // 통계 화면 표시용
+    private int episodeCount; //전체 시도수
+    private int successCount; //전체 성공 수 
+    private Queue<int> recentResults = new Queue<int>(); //최근 100회 결과(성공1, 실패0)
+    private int recentSuccesCount; // 최근 100회중 성공 수 
+
+    //Record 함수는 부품별 성공률을 따로 기록해 그래프로 보낸다.
+    //전체 성공률은 초반 실패까지 섞여있으니 최근100회(부품별 50회)만 따로 세서 현재의 실력을 본다
+    private void Record(bool success)
+    {
+        episodeCount++;
+        if (success)
+        {
+            successCount++;
+        }
+        //최근 100회 성공률을 Queue에 결과에 넣고 , 100개가 넘으면 가장 오래된 것은 뺀다 
+        // Enqueue 맨 뒤에 값넣기, Dequeue = 맨앞(가장 오래된것)꺼내기
+
+        //미션1 삼항 연산자를 사용해서 int result 변수에 성공값을 넣으세요
+        int result = success ? 1 : 0;
+
+        //미션2 result 변수를 queue에 넣기
+        recentResults.Enqueue(result);
+
+        //미션3 recentSuccesCount에 현재 result를 누적하기
+        recentSuccesCount += result;
+
+        //미션4 recentResults큐의 개수를 체크하고 100개가 넘는다면
+        //recentSuccesCount에서 현재의 recentResults의 Dequeue를 빼세요
+        if (recentResults.Count > 100)
+        {
+            recentSuccesCount -= recentResults.Dequeue();
+        }
+
+        // 부품별 기록
+        //프리팹 번호(0번 cubePart, 1번 = prismPart)
+        int index = currentPrefabIndex;
+
+        //안전확인 배열이만들어졌는지, 칸 번호가 배열 범위 안일때만 기록
+        if (partTryCount != null&& index >=0 && index < partTryCount.Length)
+        {
+            //이 부품의 전체 시도수, 성공수 (전체 성공률: 성공수 / 시도수)
+            partTryCount[index]++;          // partTryCount[Index] = partTryCount[Index] +1
+            if (success)
+            {
+                partSuccessCount[index]++;
+            }
+            //이 부품의 최근 50회 성공률 
+            // 부품 전용 큐에 이번 결과 넣기
+            //큐의 줄이 50개를 넘으면 맨 앞을 꺼내고 , 그 값만큼 성공수에서 뺸다 
+            partRecentResults[index].Enqueue(result);
+            partRecentSuccessCount[index]+= result;
+
+            if (partRecentResults[index].Count > PartRecemtWindow)
+            {
+                partRecentSuccessCount[index] -= partRecentResults[index].Dequeue();
+            }
+
+            //TensorBoard에 이 결과 값을 보낸다
+            //Add() 그래프 카테고리 Grasp / Success 부품 이름
+            Academy.Instance.StatsRecorder.Add($"Grasp/Success {partPrefabs[index].name}", result);
+        }
+    }
+    #endregion
+
+    #region 4. 수동 테스트 
+    //Heuristic only일때 신경망 대신 사람이 정답 각도를 골라주는 함수
+    //학습 전에 전체 흐름 (생성 -> 판단 -> 잡기 -> 점수) 이 제대로 도는지 확인
+
+    public override void Heuristic(in ActionBuffers actionsOut)
+    {
+        //고른 행동을 적을 칸, 기본값은 0 (0도)
+        ActionSegment<int> discretActions = actionsOut.DiscreteActions;
+        discretActions[0] = 0;
+
+        if (currentPart ==null)
+        {
+            return;
+        }
+
+        //이 부품은 몇도마다 같은 모양인지 (큐브 90, 삼각기둥 180)
+        float symmetry = currentPrefabIndex< symmetryDeg.Length ? symmetryDeg[currentPrefabIndex] : 0;
+
+        if (symmetry < 0f)
+        {
+            return;          // 대상 값이 없으면 0번 각도 그대로 
+        }
+
+        //손목 각도 알아내기
+
+        //부품의 실제 회전값
+        float partYaw = currentPart.transform.eulerAngles.y;
+
+        //고를 수 있는 각도 개수
+        int actionCount = Mathf.RoundToInt(180f / yawStep);
+
+        //지금까지 가장 잘 맞았던 번호
+        int bestAction = 0;
+
+        //그때의 차이(처음엔 아주 큰 값)
+        float bestError = float.MaxValue;
+
+        //12개 손목각도를 하나씩 대보고, 부픔과 가장 잘 맞는 것을 고른다 
+        for (int action = 0; action < actionCount; action++)
+        {
+            //손목과 부품이 실제로 몇도 어긋났다 (대칭 고려)
+
+            //예 부품이 100도 손목이 15도 
+            //그냥 빼면 -85 -> 틀렸다라고 판단
+            //실제로는 100도 = 10도와 같은 모양이니 15-10 = 5도 차이 -> 거의 맞음
+            //1. 손목 - 부품 : 그냥 뺀 차이(15-100 = -85)
+            //2.  대칭/2 -> Repeat : 대칭 단위로 되감기(-85+ 45 = -40 ->Repeat(-40,90) = 50
+            //3. -대칭/2 : 범위를 -45~45로 (50-45 = 5)
+            //Mathf.Repeat(값, 길이) 값을 0~ 길이 사이로 되감는다
+            //예 큐브 부품 50도, 손목이 45도 > -5도 // 손목이 60도 0> 10도 => 45도가 정답
+            float difference = Mathf.Repeat(action * yawStep - partYaw + symmetry * 0.5f, symmetry) -symmetry*0.5f;
+
+            //더 작은 차이를 구했다면, 이 각도를 정답 후보로 사용 
+            //(Mathf.Abs 절댓값 함수
+            if (Mathf.Abs(difference)< bestError)
+            {
+                bestError = Mathf.Abs(difference);
+                bestAction = action;
+            }
+        }
+
+        //가장 잘 맞는 행동 번호를 줌 
+        discretActions[0] = bestAction;
+    }
+    #endregion
+
+    #region 5. 화면 표시
+    //학습 모드 시도 횟수/ 성공 횟수 (100%)
+    //최근 100회 성공률(%)
+    //cubePart
+    //prisimPart
+
+    private void OnGUI()
+    {
+        //전체 성공률
+        float totalRate = episodeCount >0 ? 100f*successCount / episodeCount : 0f;
+
+        //최근 100회 성공률 
+        float recentRate = recentResults.Count > 0 ? 100f * recentSuccesCount / recentResults.Count : 0f;
+
+        string mode = trainingMode ? "학습모드" : "시연 모드";
+
+        //StringBuilder : 여러 줄 글자를 이어붙일때 쓰는 도구. Append를 사용하여 뒤에 붙여준다
+        StringBuilder text = new StringBuilder();
+        text.Append($"[{mode} 시도 {episodeCount}회 / 성공{successCount}회 ({totalRate:F1}%)]\n");
+        //미션1 최근 {}회 성공률 {} %
+        text.Append($"최근 {recentResults.Count}회 성공률{recentRate:F1}% ");
+
+        int lineCount = 2;  //지금까지 쓴 줄수 (상자높이 계산)
+
+        if (partTryCount != null)
+        {
+            for (int i = 0; i< partTryCount.Length; i++)
+            {
+                //부품 전체
+                //성공수 / 시도 수 ( 전체 성공률 ) / 최근 50회 성공률
+                float partTotalRate = partTryCount[i] > 0 ? 100f * partSuccessCount[i] / partTryCount[i] : 0f; //부품 전체
+                float partRecentRate =
+                    partRecentResults[i].Count > 0 ? 100f * partRecentSuccessCount[i] / partRecentResults[i].Count : 0f;//부품 최근
+
+                text.Append($"\n{partPrefabs[i].name}: {partSuccessCount[i]} / {partTryCount[i]} " +
+                            $"({partTotalRate:F1}%) / 최근 {partRecentResults[i].Count}회 {partRecentRate:F1}%");
+                lineCount++;
+            }
+        }
+        //상자 그리기
+        // 높이 = 위아래 여백 12
+        // 줄수 * 한줄 높이 18
+        //부품이 늘어도 상자가 자동으로 커질수있도록 구현
+        float boxHeight = 12 + lineCount * 18;
+
+        //React(x,y,너비, 높이)
+        //x = 화면 너비 - 390 -> 오른쪽 끝에서 390 안쪽
+        //y = 화면 높이 상자 높이 10 = 아래 끝에서 10 위 
+        GUI.Box(new Rect(Screen.width - 390, Screen.height - boxHeight-10, 380, boxHeight), text.ToString());
+    }
+    #endregion
 }
+
+
+

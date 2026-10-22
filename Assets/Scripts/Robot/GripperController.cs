@@ -427,7 +427,7 @@ public class GripperController : MonoBehaviour
         // 양쪽 모두 허용 각도 이내여야 성공
         bool ok = LastAngleRight <= MaxAngle && LastAngleLeft <= MaxAngle;
         LastGraspInfo = $"{(ok ? "성공" : "실패 : 미끄러짐")} ({LastAngleRight:F1}도, {LastAngleLeft:F1}도 / 허용 {MaxAngle:F1}도)";
-        return okA;
+        return ok;
     }
 
     //best = 가장 가까운 맞은 지점의 정보
